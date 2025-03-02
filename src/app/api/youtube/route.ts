@@ -1,9 +1,5 @@
 import { NextResponse } from "next/server";
 import ytdl from "ytdl-core";
-import ffmpeg from "fluent-ffmpeg";
-import ffmpegInstaller from "@ffmpeg-installer/ffmpeg";
-
-ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 export async function POST(request: Request) {
   try {
@@ -18,17 +14,18 @@ export async function POST(request: Request) {
     const info = await ytdl.getInfo(url);
     const videoTitle = info.videoDetails.title.replace(/[^\w\s]/gi, "");
 
-    // Get audio only format
-    const audioFormat = ytdl.chooseFormat(info.formats, {
-      quality: "highestaudio",
-      filter: "audioonly",
+    // Get audio format
+    const audioFormats = info.formats.filter((format) => format.mimeType?.includes("audio/mp4"));
+    const bestAudioFormat = audioFormats.reduce((prev, current) => {
+      return (prev.audioBitrate || 0) > (current.audioBitrate || 0) ? prev : current;
     });
 
     return NextResponse.json({
       title: videoTitle,
-      format: audioFormat,
-      url: audioFormat.url,
-      duration: info.videoDetails.lengthSeconds,
+      url: bestAudioFormat.url,
+      duration: parseInt(info.videoDetails.lengthSeconds),
+      contentLength: bestAudioFormat.contentLength,
+      audioBitrate: bestAudioFormat.audioBitrate,
     });
   } catch (error) {
     console.error("Error:", error);
